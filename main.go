@@ -4,17 +4,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/valyala/fasthttp"
 )
 
 func fastHTTPHandler(ctx *fasthttp.RequestCtx) {
+	now := time.Now()
+	defer log.Println(time.Since(now))
 	var v ArenaUpdate
 	req := ctx.PostBody()
 	json.Unmarshal(req, &v)
-	play(&v, ctx)
+	resp := play(&v)
+	fmt.Fprint(ctx, resp)
 	res, _ := json.Marshal(v)
 	log.Println(string(res))
+	log.Println(resp)
 }
 
 func main() {
@@ -25,40 +30,40 @@ func fire(me, en *PlayerState) (resp string) {
 	if me.X == en.X {
 		if me.Y > en.Y {
 			switch me.Direction {
-			case "N":
+			case N:
 				return "T"
-			case "S", "E":
+			case S, E:
 				return "L"
-			case "W":
+			case W:
 				return "R"
 			}
 		} else {
 			switch me.Direction {
-			case "S":
+			case S:
 				return "T"
-			case "N", "E":
+			case N, E:
 				return "R"
-			case "W":
+			case W:
 				return "L"
 			}
 		}
 	} else {
 		if me.X > en.X {
 			switch me.Direction {
-			case "W":
+			case W:
 				return "T"
-			case "S", "E":
+			case S, E:
 				return "R"
-			case "N":
+			case N:
 				return "L"
 			}
 		} else {
 			switch me.Direction {
-			case "E":
+			case E:
 				return "T"
-			case "N", "W":
+			case N, W:
 				return "R"
-			case "S":
+			case S:
 				return "L"
 			}
 		}
@@ -77,40 +82,40 @@ func move(me, en *PlayerState) (resp string) {
 	if abs(me.X-en.X) < abs(me.Y-en.Y) {
 		if me.X > en.X {
 			switch me.Direction {
-			case "W":
+			case W:
 				return "F"
-			case "S", "E":
+			case S, E:
 				return "R"
-			case "N":
+			case N:
 				return "L"
 			}
 		} else {
 			switch me.Direction {
-			case "E":
+			case E:
 				return "F"
-			case "N", "W":
+			case N, W:
 				return "R"
-			case "S":
+			case S:
 				return "L"
 			}
 		}
 	} else {
 		if me.Y > en.Y {
 			switch me.Direction {
-			case "N":
+			case N:
 				return "F"
-			case "S", "E":
+			case S, E:
 				return "L"
-			case "W":
+			case W:
 				return "R"
 			}
 		} else {
 			switch me.Direction {
-			case "S":
+			case S:
 				return "F"
-			case "N", "E":
+			case N, E:
 				return "R"
-			case "W":
+			case W:
 				return "L"
 			}
 		}
@@ -127,32 +132,32 @@ func distance(me, en *PlayerState) (dist int) {
 	}
 	if me.X > en.X {
 		switch me.Direction {
-		case "S", "N":
+		case S, N:
 			sum++
-		case "E":
+		case E:
 			sum += 2
 		}
 	} else if me.X < en.X {
 		switch me.Direction {
-		case "S", "N":
+		case S, N:
 			sum++
-		case "W":
+		case W:
 			sum += 2
 
 		}
 	}
 	if me.Y > en.Y {
 		switch me.Direction {
-		case "E", "W":
+		case E, W:
 			sum++
-		case "S":
+		case S:
 			sum += 2
 		}
 	} else {
 		switch me.Direction {
-		case "E", "W":
+		case E, W:
 			sum++
-		case "N":
+		case N:
 			sum += 2
 		}
 	}
@@ -168,11 +173,18 @@ func canFire(me, en *PlayerState) bool {
 	return abs(me.X-en.X) <= 3
 }
 
-func play(input *ArenaUpdate, w *fasthttp.RequestCtx) {
+var lastName string = ""
+
+func play(input *ArenaUpdate) string {
 	meName := input.Links.Self.Href
 
-	arena := input.Arena
+	arena := &input.Arena
 	me := arena.State[meName]
+	last := arena.State[lastName]
+
+	if lastName != "" && canFire(&me, &last) {
+		return fire(&me, &last)
+	}
 
 	var nemesis PlayerState
 	dist := 99999
@@ -185,18 +197,16 @@ func play(input *ArenaUpdate, w *fasthttp.RequestCtx) {
 		if d < dist {
 			dist = d
 			nemesis = k
+			lastName = i
 		}
 	}
 	if canFire(&me, &nemesis) {
 
 		resp := fire(&me, &nemesis)
 
-		fmt.Fprint(w, resp)
-		log.Println(resp)
-		return
+		return resp
 	}
 	resp := move(&me, &nemesis)
 
-	fmt.Fprint(w, resp)
-	log.Println(resp)
+	return resp
 }
