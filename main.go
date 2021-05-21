@@ -180,10 +180,12 @@ func play(input *ArenaUpdate) string {
 
 	arena := &input.Arena
 	me := arena.State[meName]
-	last := arena.State[lastName]
 
-	if lastName != "" && canFire(&me, &last) {
-		return fire(&me, &last)
+	if lastName != "" {
+		last := arena.State[lastName]
+		if canFire(&me, &last) {
+			return fire(&me, &last)
+		}
 	}
 
 	var nemesis PlayerState
@@ -199,14 +201,13 @@ func play(input *ArenaUpdate) string {
 			nemesis = k
 			lastName = i
 		}
+		if dist == 0 {
+			return fire(&me, &nemesis)
+		}
 	}
 	if canFire(&me, &nemesis) {
 
-		resp := fire(&me, &nemesis)
-
-		return resp
+		return fire(&me, &nemesis)
 	}
-	resp := move(&me, &nemesis)
-
-	return resp
+	return move(&me, &nemesis)
 }
